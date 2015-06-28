@@ -1,0 +1,83 @@
+---
+
+- name: Install packages
+  yum: name={{item}}
+       state=latest
+  with_items:
+    - expect
+    - screen
+
+- name: Create Minecraft group
+  group: name=minecraft
+         system=yes
+         state=present
+
+- name: Create Minecraft user
+  user: name=minecraft
+        home=/srv/minecraft
+        group=minecraft
+        system=yes
+        state=present
+
+- name: Create server log file
+  file: path=/srv/minecraft/server.log state=touch
+
+- name: Get server jar file
+  get_url: url=https://s3.amazonaws.com/Minecraft.Download/versions/1.8.7/minecraft_server.1.8.7.jar
+           sha256sum=5cf4a49762c996c94f6b8b119f1c80b4de3c12b2f5c53268801905bb7daa0644
+           dest=/srv/minecraft/minecraft_server.jar
+
+- name: Set permissions to minecraft server directory
+  file: path=/srv/minecraft owner=minecraft group=minecraft
+
+- name: Symlink server log to /var/log
+  file: src=/srv/minecraft/server.log
+        dest=/var/log/minecraft.log
+        state=link
+
+- name: Create backup directory
+  file: path=/srv/minecraft/backup
+        state=directory
+
+- name: Create conf.d directory
+  file: path=/etc/conf.d
+        state=directory
+
+- name: Copy all files
+  copy: src={{item.src}}
+        dest={{item.dest}}
+        owner=minecraft
+        group=minecraft
+  with_items:
+    - src: minecraftd
+      dest: /usr/bin/minecraftd
+    - src: minecraftd-diag
+      dest: /usr/bin/minecraftd-diag
+    - src: minecraftctl
+      dest: /usr/bin/minecraftctl
+    - src: minecraft-server.service
+      dest: /usr/lib/systemd/system/minecraft-server.service
+    - src: conf.minecraft
+      dest: /etc/conf.d/minecraft
+
+- name: Mark executable scripts as executable
+  file: path={{item}} mode=0755
+  with_items:
+    - /usr/bin/minecraftd
+    - /usr/bin/minecraftd-diag
+    - /usr/bin/minecraftctl
+
+- name: Setup firewall rules for minecraft server
+  command: firewall-cmd --permanent --add-port=25565/tcp
+
+- name: Load new firewall rules
+  command: firewall-cmd --reload
+
+- name: Enable firewalld service
+  service: name=firewalld state=started enabled=yes
+
+- name: Upload eula
+  copy: src=eula.txt dest=/srv/minecraft/eula.txt
+
+- name: Start and enable minecraft-server service
+  service: name=minecraft-server state=started enabled=yes

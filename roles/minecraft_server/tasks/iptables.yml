@@ -1,0 +1,30 @@
+- name: Install packages to use iptables
+  yum: name={{item}} state=latest
+  with_items:
+    - iptables-services
+    - policycoreutils
+
+- name: Disable firewalld
+  service: name=firewalld state=stopped enabled=false
+
+- name: Really disable firewalld
+  command: systemctl mask firewalld
+
+- name: Start & enable iptables service
+  service: name=iptables state=started enabled=true
+
+- name: Check for existence of minecraft server rule
+  command:  iptables --list | grep mincecraft
+  register: iptables_list
+  ignore_errors: true
+
+- name: Enable port through firewall for minecraft server
+  command: >
+      iptables -A INPUT -p tcp -m tcp --dport 25565
+      -m comment --comment "Allow minecraft" -j ACCEPT
+  when: iptables_list|failed
+
+- name: Save iptables
+  command: service iptables save
+  when: iptables_list|failed
+
