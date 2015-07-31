@@ -1,1 +1,4 @@
 hosts
+whitelist.yml
+backups
+ops_users.yml

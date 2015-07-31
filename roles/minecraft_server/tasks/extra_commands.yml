@@ -1,0 +1,24 @@
+- name: Load existing whitelist if it exists
+  command: cat /srv/minecraft/whitelist.json
+  ignore_errors: true
+  register: whitelist_result
+
+- include_vars: whitelist.yml
+
+- name: Whitelist users
+  command: minecraftctl command whitelist add {{item}}
+  when: item not in whitelist_result.stdout
+  with_items: whitelist_users
+
+- name: Disable creeper damage to blocks
+  command: minecraftctl command gamerule mobGriefing false
+
+- name: Load existing ops users
+  command: cat /srv/minecraft/ops.json
+  ignore_errors: true
+  register: ops_result
+
+- name: Op users
+  command: minecraftctl command "/op {{item}}"
+  when: item not in ops_result.stdout
+  with_items: ops_users
